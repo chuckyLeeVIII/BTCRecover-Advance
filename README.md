@@ -8,14 +8,14 @@ orchestrator for cross‑chain key discovery and automated recovery.
 
 ## Guaranteed Non‑Fail Recovery Design
 
-BTCRecover-Advance is designed to be used **together** with my
+BTCRecover-Level-Up is designed to be used **together** with my
 [AUTO-RBF-BTC-ETH](https://github.com/chuckyLeeVIII/AUTO-RBF-BTC-ETH)
 toolchain to create a recovery flow that is engineered not to fail,
 under realistic network conditions.
 
 In this combined architecture:
 
-- BTCRecover-lEVELuP handles:
+- BTCRecover-lEVEL-uP handles:
   - seed / passphrase / wallet password recovery across supported chains,
   - automated local discovery of wallet, key, and cipher files
     (`wallet.dat`, Electrum wallets, keystores, `.sc`, `.zowe`, etc.),
