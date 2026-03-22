@@ -15,7 +15,7 @@ under realistic network conditions.
 
 In this combined architecture:
 
-- BTCRecover-Advance handles:
+- BTCRecover-lEVELuP handles:
   - seed / passphrase / wallet password recovery across supported chains,
   - automated local discovery of wallet, key, and cipher files
     (`wallet.dat`, Electrum wallets, keystores, `.sc`, `.zowe`, etc.),
@@ -29,7 +29,7 @@ The goal of this integration is simple: **once a valid key or seed is
 recovered, the funds will move**, using robust fee management and
 rebroadcast logic, not just a single best‑effort transaction attempt.
 
-## What BTCRecover-Advance Adds
+## What BTCRecover-lEVEL-uP Adds
 
 On top of the original BTCRecover features, this fork adds:
 
