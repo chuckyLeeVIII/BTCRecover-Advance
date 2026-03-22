@@ -1,28 +1,29 @@
-# BTCRecover-Level-Up!
+## INSTALL — WINDOWS / LINUX / WSL (UV)
 
-## INSTALL — WINDOWS / LINUX / WSL
-
-BTCRecover-Level-Up! is just Python. If you can run Python 3.9+ and a shell, it will run. [web:107][web:114]
+BTCRecover-Level-Up! is just Python. Use `uv` to handle env + deps.
 
 ```bash
 # clone this fork
 git clone https://github.com/chuckyLeeVIII/BTCRecover-Level-Up-.git
 cd BTCRecover-Level-Up-
 
-# create and activate venv (Windows PowerShell)
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+# install uv if you don't have it
+# Windows (PowerShell):
+py -m pip install uv
 
-# or: Linux / WSL
-python3 -m venv .venv
-source .venv/bin/activate
+# Linux / WSL:
+python3 -m pip install --user uv
 
-# install deps
-pip install -r requirements.txt
+WSL / Linux UI prerequisites
+On Ubuntu/Debian (including WSL) you must install Tk from the system packages:
 
-# run the UI
-python ui_launcher.py
-
+bash
+sudo apt update
+sudo apt install -y python3-tk python3-dev tk-dev
+Run BTCRecover-Level-Up with uv
+bash
+uv run python ui_launcher.py
+uv run will create an isolated env, install everything from requirements.txt, and start the UI.
 
 > **Trustless by design. Adversarial engineering.**  
 > On-chain royalties, off-chain penalties, innocent till inconvenient.
