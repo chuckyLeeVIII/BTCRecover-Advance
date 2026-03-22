@@ -6,6 +6,9 @@ import sys
 from datetime import datetime
 from typing import List, Dict, Any
 
+from blockbook_balance import get_balances_for_addresses, BlockbookError
+from blockbook_config import BLOCKBOOK_ENDPOINTS
+
 
 # --- file-type filters: wallet / key / cipher files ------------------
 
@@ -122,7 +125,6 @@ def _gather_search_filters() -> Dict[str, List[str]]:
 
     aggregate: Dict[str, List[str]] = {
         "wallet_files": [],
-        "key_files": [],
         "wif": [],
         "hex_priv": [],
         "xprv": [],
@@ -155,24 +157,30 @@ def _gather_search_filters() -> Dict[str, List[str]]:
     return aggregate
 
 
-# --- Blockbook / RICKEY stub (to be wired) ---------------------------
+# --- Blockbook / RICKEY integration ----------------------------------
 
 def _check_balance_for_keys(filters: Dict[str, List[str]]) -> Dict[str, Any]:
     """
-    Here is where Blockbook / RICKEY / PyKryptonite will plug in.
-
-    For now:
-      - just echo back counts so you see the pipeline
+    Use Blockbook endpoints from blockbook_config.py to check balances
+    for addresses we derive later. For now, this just echoes counts and
+    returns an empty chains dict; once you add address derivation, you
+    can plug those addresses in here.
     """
     summary = {
         "wallet_file_count": len(filters.get("wallet_files", [])),
-        "key_file_count": len(filters.get("key_files", [])),
         "wif_count": len(filters.get("wif", [])),
         "hex_priv_count": len(filters.get("hex_priv", [])),
         "xprv_count": len(filters.get("xprv", [])),
         "xpub_count": len(filters.get("xpub", [])),
         "chains": {},
     }
+
+    # Placeholder: once you have actual addresses, you will do something like:
+    # for chain_name in BLOCKBOOK_ENDPOINTS:
+    #     addrs = [...]  # derived from keys
+    #     res = get_balances_for_addresses(chain_name, addrs)
+    #     summary["chains"][chain_name] = res
+
     return summary
 
 
